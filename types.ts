@@ -12,6 +12,7 @@ export interface Category {
   id: string;
   name: string;
   items: TaskItem[];
+  active?: boolean;
 }
 
 export interface DailyData {
