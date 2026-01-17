@@ -20,9 +20,3 @@ export interface DailyData {
     categories: Category[];
   };
 }
-
-export interface SyncState {
-  syncId: string;
-  lastSync: string | null;
-  status: 'idle' | 'syncing' | 'error' | 'success';
-}
