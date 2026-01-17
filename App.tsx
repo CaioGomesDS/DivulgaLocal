@@ -3,17 +3,23 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { DAYS_PT, MONTHS_PT, INITIAL_CATEGORIES } from './constants';
 import { DailyData, Category, TaskItem } from './types';
 
+const Logo: React.FC<{ size?: number; className?: string }> = ({ size = 32, className = "" }) => (
+  <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <rect width="512" height="512" rx="128" fill="#4f46e5"/>
+    <path d="M343.3 227.1L192 136v184l151.3-91.1a16.1 16.1 0 000-27.8zM160 160h-32a32 32 0 00-32 32v64a32 32 0 0032 32h32v-128z" fill="white"/>
+    <path d="M192 352a32 32 0 01-32-32h-32a64.1 64.1 0 0064 64h16a16 16 0 000-32z" fill="white"/>
+  </svg>
+);
+
 const App: React.FC = () => {
   const [now] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Estado principal dos dados (Salvo apenas localmente para máxima velocidade e privacidade)
   const [dailyData, setDailyData] = useState<DailyData>(() => {
     const saved = localStorage.getItem('divulgalocal_v3_data');
     return saved ? JSON.parse(saved) : {};
   });
 
-  // Salva no navegador sempre que algo mudar
   useEffect(() => {
     localStorage.setItem('divulgalocal_v3_data', JSON.stringify(dailyData));
   }, [dailyData]);
@@ -28,7 +34,6 @@ const App: React.FC = () => {
 
   const currentDayData = useMemo(() => {
     if (!dailyData[dateKey]) {
-      // Cria uma cópia limpa das categorias iniciais se o dia não existir
       return { 
         categories: (JSON.parse(JSON.stringify(INITIAL_CATEGORIES)) as Category[]).map(c => ({ ...c, active: false })) 
       };
@@ -58,8 +63,12 @@ const App: React.FC = () => {
   };
 
   const activeBtnStyles: Record<string, string> = {
-    fb: 'bg-blue-600 text-white', ig: 'bg-purple-600 text-white', wa: 'bg-emerald-600 text-white',
-    olx: 'bg-orange-600 text-white', tt: 'bg-slate-700 text-white', ge: 'bg-indigo-600 text-white'
+    fb: 'bg-blue-600 text-white border-blue-600', 
+    ig: 'bg-purple-600 text-white border-purple-600', 
+    wa: 'bg-emerald-600 text-white border-emerald-600',
+    olx: 'bg-orange-600 text-white border-orange-600', 
+    tt: 'bg-slate-700 text-white border-slate-700', 
+    ge: 'bg-indigo-600 text-white border-indigo-600'
   };
 
   return (
@@ -67,7 +76,10 @@ const App: React.FC = () => {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
         <div className="max-w-6xl mx-auto p-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-black text-indigo-600 tracking-tighter uppercase">DivulgaLocal</h1>
+            <div className="flex items-center gap-2">
+              <Logo size={28} className="shadow-sm rounded-lg" />
+              <h1 className="text-xl font-black text-indigo-600 tracking-tighter uppercase">DivulgaLocal</h1>
+            </div>
             <div className="text-right">
               <span className="text-lg font-bold block leading-none">{MONTHS_PT[selectedDate.getMonth()]}</span>
               <span className="text-[10px] text-slate-400 font-bold uppercase">{selectedDate.getFullYear()}</span>
@@ -114,7 +126,7 @@ const App: React.FC = () => {
         {currentDayData.categories.filter(c => c.active).length === 0 ? (
           <div className="bg-white rounded-3xl border-2 border-dashed border-slate-200 p-16 text-center">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+              <Logo size={32} className="opacity-20 grayscale" />
             </div>
             <p className="text-slate-400 font-black uppercase text-xs tracking-widest">Ative as redes que você vai usar hoje no menu acima</p>
           </div>

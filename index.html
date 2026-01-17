@@ -5,6 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DivulgaLocal - Painel Diário</title>
+    
+    <!-- Ícones e Manifest para Atalho no Celular/PC -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%234f46e5'/%3E%3Cpath d='M343.3 227.1L192 136v184l151.3-91.1a16.1 16.1 0 000-27.8zM160 160h-32a32 32 0 00-32 32v64a32 32 0 0032 32h32v-128z' fill='white'/%3E%3Cpath d='M192 352a32 32 0 01-32-32h-32a64.1 64.1 0 0064 64h16a16 16 0 000-32z' fill='white'/%3E%3C/svg%3E">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%234f46e5'/%3E%3Cpath d='M343.3 227.1L192 136v184l151.3-91.1a16.1 16.1 0 000-27.8zM160 160h-32a32 32 0 00-32 32v64a32 32 0 0032 32h32v-128z' fill='white'/%3E%3Cpath d='M192 352a32 32 0 01-32-32h-32a64.1 64.1 0 0064 64h16a16 16 0 000-32z' fill='white'/%3E%3C/svg%3E">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,6 +22,7 @@
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
         }
         .scrollbar-hide::-webkit-scrollbar {
             display: none;

@@ -1,0 +1,17 @@
+
+{
+  "short_name": "DivulgaLocal",
+  "name": "DivulgaLocal - Painel Diário",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='128' fill='%234f46e5'/%3E%3Cpath d='M343.3 227.1L192 136v184l151.3-91.1a16.1 16.1 0 000-27.8zM160 160h-32a32 32 0 00-32 32v64a32 32 0 0032 32h32v-128z' fill='white'/%3E%3Cpath d='M192 352a32 32 0 01-32-32h-32a64.1 64.1 0 0064 64h16a16 16 0 000-32z' fill='white'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#4f46e5",
+  "background_color": "#f8fafc"
+}
