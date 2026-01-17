@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { DAYS_PT, MONTHS_PT, INITIAL_CATEGORIES } from './constants';
 import { DailyData, Category, TaskItem, SyncState } from './types';
 
-// Função auxiliar para gerar ID único curto
 const generateShortId = () => {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 };
@@ -13,7 +12,6 @@ const App: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showSyncModal, setShowSyncModal] = useState(false);
   
-  // Estado de Sincronização
   const [syncState, setSyncState] = useState<SyncState>(() => {
     const saved = localStorage.getItem('divulgalocal_sync_info');
     return saved ? JSON.parse(saved) : {
@@ -23,37 +21,9 @@ const App: React.FC = () => {
     };
   });
 
-  // Persistência do Sync Info
   useEffect(() => {
     localStorage.setItem('divulgalocal_sync_info', JSON.stringify(syncState));
   }, [syncState]);
-
-  const categoryStyles: Record<string, string> = {
-    fb: 'bg-blue-100 border-blue-200',
-    ig: 'bg-purple-100 border-purple-200',
-    wa: 'bg-emerald-100 border-emerald-200',
-    olx: 'bg-orange-100 border-orange-200',
-    tt: 'bg-slate-200 border-slate-300',
-    ge: 'bg-indigo-100 border-indigo-200'
-  };
-
-  const activeBtnStyles: Record<string, string> = {
-    fb: 'bg-blue-600 text-white border-blue-600',
-    ig: 'bg-purple-600 text-white border-purple-600',
-    wa: 'bg-emerald-600 text-white border-emerald-600',
-    olx: 'bg-orange-600 text-white border-orange-600',
-    tt: 'bg-slate-700 text-white border-slate-700',
-    ge: 'bg-indigo-600 text-white border-indigo-600'
-  };
-
-  const titleStyles: Record<string, string> = {
-    fb: 'text-blue-900',
-    ig: 'text-purple-900',
-    wa: 'text-emerald-900',
-    olx: 'text-orange-900',
-    tt: 'text-slate-900',
-    ge: 'text-indigo-900'
-  };
 
   const [dailyData, setDailyData] = useState<DailyData>(() => {
     const saved = localStorage.getItem('divulgalocal_v3_data');
@@ -64,24 +34,33 @@ const App: React.FC = () => {
     localStorage.setItem('divulgalocal_v3_data', JSON.stringify(dailyData));
   }, [dailyData]);
 
-  // Lógica de Sincronização na Nuvem
-  // Usaremos a API kvdb.io para persistência sem login (bucket público por ID)
+  // Lógica de Sincronização Corrigida
   const syncToCloud = async () => {
     setSyncState(prev => ({ ...prev, status: 'syncing' }));
     try {
-      // Usamos um bucket genérico prefixado para evitar colisões
+      // Usamos PUT para garantir que o ID seja criado/sobrescrito com o JSON
       const response = await fetch(`https://kvdb.io/A2wGidH6z2Bv4YvX5zWnB8/${syncState.syncId}`, {
-        method: 'POST',
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(dailyData),
       });
+
       if (response.ok) {
-        setSyncState(prev => ({ ...prev, status: 'success', lastSync: new Date().toLocaleString() }));
-        setTimeout(() => setSyncState(prev => ({ ...prev, status: 'idle' })), 3000);
+        setSyncState(prev => ({ 
+          ...prev, 
+          status: 'success', 
+          lastSync: new Date().toLocaleTimeString() 
+        }));
+        alert("✅ Dados enviados com sucesso! Agora você pode baixar no outro aparelho.");
+        setTimeout(() => setSyncState(prev => ({ ...prev, status: 'idle' })), 2000);
       } else {
-        throw new Error();
+        throw new Error("Erro no servidor");
       }
     } catch (e) {
       setSyncState(prev => ({ ...prev, status: 'error' }));
+      alert("❌ Erro ao enviar. Verifique sua internet.");
       setTimeout(() => setSyncState(prev => ({ ...prev, status: 'idle' })), 3000);
     }
   };
@@ -89,23 +68,32 @@ const App: React.FC = () => {
   const loadFromCloud = async (idToLoad?: string) => {
     const targetId = idToLoad || syncState.syncId;
     setSyncState(prev => ({ ...prev, status: 'syncing' }));
+    
     try {
       const response = await fetch(`https://kvdb.io/A2wGidH6z2Bv4YvX5zWnB8/${targetId}`);
+      
       if (response.ok) {
         const data = await response.json();
+        if (Object.keys(data).length === 0) {
+          alert("⚠️ O ID existe, mas não contém dados salvos.");
+          setSyncState(prev => ({ ...prev, status: 'idle' }));
+          return;
+        }
         setDailyData(data);
         setSyncState({
           syncId: targetId,
-          lastSync: new Date().toLocaleString(),
+          lastSync: new Date().toLocaleTimeString(),
           status: 'success'
         });
-        setTimeout(() => setSyncState(prev => ({ ...prev, status: 'idle' })), 3000);
+        alert("✅ Dados baixados e sincronizados!");
+        setTimeout(() => setSyncState(prev => ({ ...prev, status: 'idle' })), 2000);
       } else {
-        alert("ID não encontrado na nuvem.");
+        alert("❌ ID NÃO ENCONTRADO.\n\nCertifique-se de clicar em 'ENVIAR DADOS' no aparelho original antes de tentar conectar no novo.");
         setSyncState(prev => ({ ...prev, status: 'error' }));
       }
     } catch (e) {
       setSyncState(prev => ({ ...prev, status: 'error' }));
+      alert("❌ Erro de conexão.");
     }
   };
 
@@ -129,9 +117,7 @@ const App: React.FC = () => {
 
   const toggleCategory = (catId: string) => {
     const updatedCategories = currentDayData.categories.map(cat => {
-      if (cat.id === catId) {
-        return { ...cat, active: !cat.active };
-      }
+      if (cat.id === catId) return { ...cat, active: !cat.active };
       return cat;
     });
     setDailyData(prev => ({ ...prev, [dateKey]: { categories: updatedCategories } }));
@@ -150,22 +136,42 @@ const App: React.FC = () => {
     setDailyData(prev => ({ ...prev, [dateKey]: { categories: updatedCategories } }));
   };
 
-  const activeCategories = currentDayData.categories.filter(c => c.active);
+  const categoryStyles: Record<string, string> = {
+    fb: 'bg-blue-100 border-blue-200',
+    ig: 'bg-purple-100 border-purple-200',
+    wa: 'bg-emerald-100 border-emerald-200',
+    olx: 'bg-orange-100 border-orange-200',
+    tt: 'bg-slate-200 border-slate-300',
+    ge: 'bg-indigo-100 border-indigo-200'
+  };
+
+  const activeBtnStyles: Record<string, string> = {
+    fb: 'bg-blue-600 text-white border-blue-600',
+    ig: 'bg-purple-600 text-white border-purple-600',
+    wa: 'bg-emerald-600 text-white border-emerald-600',
+    olx: 'bg-orange-600 text-white border-orange-600',
+    tt: 'bg-slate-700 text-white border-slate-700',
+    ge: 'bg-indigo-600 text-white border-indigo-600'
+  };
+
+  const titleStyles: Record<string, string> = {
+    fb: 'text-blue-900', ig: 'text-purple-900', wa: 'text-emerald-900',
+    olx: 'text-orange-900', tt: 'text-slate-900', ge: 'text-indigo-900'
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-indigo-100 selection:text-indigo-900 text-slate-900">
-      {/* Cabeçalho */}
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
         <div className="max-w-6xl mx-auto p-4">
           <div className="flex items-center justify-between mb-4 px-2">
             <div className="flex items-center gap-4">
-              <h1 className="text-xl font-black text-indigo-600 tracking-tighter">DIVULGALOCAL</h1>
+              <h1 className="text-xl font-black text-indigo-600 tracking-tighter uppercase">DivulgaLocal</h1>
               <button 
                 onClick={() => setShowSyncModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-black uppercase tracking-wider hover:bg-indigo-100 transition-colors border border-indigo-100"
+                className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-[10px] font-black uppercase tracking-wider hover:bg-indigo-100 border border-indigo-100 transition-all"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
-                {syncState.lastSync ? 'Sincronizado' : 'Nuvem'}
+                <span className={`w-2 h-2 rounded-full ${syncState.lastSync ? 'bg-green-500' : 'bg-amber-500'} animate-pulse`}></span>
+                {syncState.lastSync ? 'Conectado' : 'Sincronizar'}
               </button>
             </div>
             <div className="flex items-center gap-2">
@@ -177,12 +183,12 @@ const App: React.FC = () => {
           <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide">
             {daysInMonth.map((day) => {
               const isSelected = selectedDate.getDate() === day;
-              const isToday = now.getDate() === day && now.getMonth() === selectedDate.getMonth() && now.getFullYear() === selectedDate.getFullYear();
+              const isToday = now.getDate() === day && now.getMonth() === selectedDate.getMonth();
               return (
                 <button
                   key={day}
                   onClick={() => setSelectedDate(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day))}
-                  className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 hover:bg-slate-100 border border-slate-200'} ${isToday && !isSelected ? 'ring-2 ring-indigo-200' : ''}`}
+                  className={`flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold transition-all ${isSelected ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-500 border border-slate-200'} ${isToday && !isSelected ? 'ring-2 ring-indigo-300' : ''}`}
                 >
                   {day}
                 </button>
@@ -192,79 +198,62 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Modal de Sincronização */}
       {showSyncModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Sincronização em Nuvem</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Nuvem DivulgaLocal</h3>
               <button onClick={() => setShowSyncModal(false)} className="text-slate-400 hover:text-slate-600">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
               </button>
             </div>
+            
             <div className="p-6 space-y-6">
-              <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Seu Código Único</label>
-                <div className="flex gap-2">
-                  <div className="flex-grow bg-slate-100 border border-slate-200 rounded-xl px-4 py-3 font-mono font-bold text-lg text-indigo-700 tracking-widest">
+              <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                <p className="text-[11px] font-bold text-indigo-700 uppercase mb-3 text-center">PASSO 1: No celular, envie seus dados</p>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="text-2xl font-mono font-black text-indigo-900 tracking-[0.2em]">
                     {syncState.syncId}
                   </div>
                   <button 
-                    onClick={() => {
-                      navigator.clipboard.writeText(syncState.syncId);
-                      alert("Código copiado!");
-                    }}
-                    className="bg-white border border-slate-200 px-4 rounded-xl text-slate-600 hover:bg-slate-50"
+                    onClick={syncToCloud}
+                    className="w-full mt-2 py-3 bg-indigo-600 text-white rounded-lg font-black text-xs uppercase shadow-lg shadow-indigo-200 active:scale-95 transition-all"
                   >
-                    Copiar
+                    {syncState.status === 'syncing' ? 'Enviando...' : '⬆️ ENVIAR MEUS DADOS AGORA'}
                   </button>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-2 font-medium">Use este código no seu celular ou outro computador para acessar os mesmos dados.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={syncToCloud}
-                  disabled={syncState.status === 'syncing'}
-                  className="flex flex-col items-center justify-center p-4 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                >
-                  <svg className="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                  <span className="text-xs font-black uppercase">Enviar Dados</span>
-                </button>
-                <button 
-                  onClick={() => loadFromCloud()}
-                  disabled={syncState.status === 'syncing'}
-                  className="flex flex-col items-center justify-center p-4 bg-white border-2 border-slate-100 text-slate-700 rounded-2xl hover:bg-slate-50 transition-colors disabled:opacity-50"
-                >
-                  <svg className="w-6 h-6 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
-                  <span className="text-xs font-black uppercase">Baixar Dados</span>
-                </button>
+              <div className="relative py-2 text-center">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
+                <span className="relative px-3 bg-white text-[10px] font-black text-slate-400 uppercase">Ou conecte outro</span>
               </div>
 
-              <div>
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Conectar a outro dispositivo</label>
+              <div className="space-y-3">
+                <p className="text-[11px] font-bold text-slate-600 uppercase text-center">PASSO 2: No computador, cole o código</p>
                 <div className="flex gap-2">
                   <input 
                     type="text" 
-                    placeholder="Cole o código aqui..."
+                    placeholder="Ex: AB12CD"
                     id="id-input"
-                    className="flex-grow bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="flex-grow bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-center font-mono font-bold uppercase outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <button 
                     onClick={() => {
                       const input = document.getElementById('id-input') as HTMLInputElement;
                       if(input.value) loadFromCloud(input.value.toUpperCase());
                     }}
-                    className="bg-slate-800 text-white px-4 rounded-xl text-xs font-black uppercase"
+                    className="bg-slate-800 text-white px-6 rounded-lg text-xs font-black uppercase"
                   >
-                    Conectar
+                    Baixar
                   </button>
                 </div>
               </div>
             </div>
-            <div className="bg-slate-50 p-4 border-t border-slate-100">
-              <p className="text-[10px] text-center font-bold text-slate-500 uppercase tracking-widest">
-                {syncState.status === 'syncing' ? 'Sincronizando...' : syncState.lastSync ? `Última sincronização: ${syncState.lastSync}` : 'Não sincronizado com a nuvem'}
+            
+            <div className="bg-slate-50 p-4 border-t border-slate-100 text-center">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">
+                {syncState.lastSync ? `Sincronizado às: ${syncState.lastSync}` : 'Aguardando primeira sincronização'}
               </p>
             </div>
           </div>
@@ -272,17 +261,17 @@ const App: React.FC = () => {
       )}
 
       <main className="max-w-6xl mx-auto p-4 md:p-8 flex-grow w-full">
-        <div className="mb-6 border-l-4 border-indigo-600 pl-4 py-1 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">Painel do Dia {selectedDate.getDate()}</h2>
-            <p className="text-slate-500 text-sm font-medium">{DAYS_PT[selectedDate.getDay()]}</p>
+        <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="border-l-4 border-indigo-600 pl-4">
+            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Dia {selectedDate.getDate()}</h2>
+            <p className="text-slate-500 text-xs font-bold uppercase">{DAYS_PT[selectedDate.getDay()]}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {currentDayData.categories.map(cat => (
               <button
                 key={cat.id}
                 onClick={() => toggleCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-all ${cat.active ? activeBtnStyles[cat.id] || 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-400'}`}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${cat.active ? activeBtnStyles[cat.id] : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'}`}
               >
                 {cat.name}
               </button>
@@ -290,57 +279,51 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {activeCategories.length === 0 ? (
+        {currentDayData.categories.filter(c => c.active).length === 0 ? (
           <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-12 text-center">
-            <div className="max-w-sm mx-auto">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
-                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              </div>
-              <h3 className="text-lg font-black text-slate-700 uppercase tracking-tight">Nada planejado para hoje?</h3>
-              <p className="text-slate-500 text-sm mt-2 font-medium">Selecione os canais que você pretende utilizar hoje no menu acima para começar a preencher os dados.</p>
-            </div>
+            <h3 className="text-slate-400 font-black uppercase text-sm">Selecione uma rede social acima</h3>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {activeCategories.map((category) => (
-              <div key={category.id} className={`${categoryStyles[category.id] || 'bg-white border-slate-200'} rounded-2xl border shadow-md overflow-hidden transition-all hover:shadow-lg`}>
-                <div className="bg-white/40 border-b border-inherit px-6 py-4 flex items-center justify-between">
-                  <h3 className={`text-lg font-black uppercase tracking-wider ${titleStyles[category.id] || 'text-slate-800'}`}>{category.name}</h3>
-                  <span className="bg-white/80 border border-inherit px-2 py-1 rounded-md text-[10px] font-black text-slate-600">{category.items.length} TAREFAS</span>
+            {currentDayData.categories.filter(c => c.active).map((category) => (
+              <div key={category.id} className={`${categoryStyles[category.id]} rounded-2xl border shadow-sm overflow-hidden`}>
+                <div className="bg-white/50 px-6 py-3 border-b border-inherit flex justify-between items-center">
+                  <h3 className={`font-black uppercase text-sm ${titleStyles[category.id]}`}>{category.name}</h3>
+                  <div className="text-[10px] font-black opacity-50 uppercase">{category.items.filter(i => i.completed).length}/{category.items.length}</div>
                 </div>
-                <div className="p-6 space-y-8">
+                <div className="p-6 space-y-6">
                   {category.items.map((item) => (
-                    <div key={item.id} className="space-y-4">
+                    <div key={item.id} className="bg-white/40 p-4 rounded-xl space-y-3">
                       <div className="flex items-center gap-3">
                         <button 
                           onClick={() => updateTaskField(category.id, item.id, 'completed', !item.completed)}
-                          className={`w-7 h-7 rounded-lg flex items-center justify-center border-2 transition-all ${item.completed ? 'bg-green-600 border-green-600 text-white' : 'bg-white border-slate-300 text-transparent hover:border-indigo-500 shadow-sm'}`}
+                          className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${item.completed ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-300 text-transparent'}`}
                         >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"></path></svg>
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
                         </button>
-                        <h4 className={`text-base font-black tracking-tight ${item.completed ? 'text-slate-500 line-through opacity-60' : 'text-slate-800'}`}>{item.label}</h4>
+                        <span className={`text-sm font-black uppercase tracking-tight ${item.completed ? 'opacity-30 line-through' : 'text-slate-700'}`}>{item.label}</span>
                       </div>
-                      <div className="grid grid-cols-1 gap-3 pl-10">
+                      <div className="grid gap-2">
                         <textarea
                           value={item.text}
                           onChange={(e) => updateTaskField(category.id, item.id, 'text', e.target.value)}
-                          placeholder="Texto da postagem..."
-                          className="w-full bg-white border border-slate-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none min-h-[70px]"
+                          placeholder="Texto..."
+                          className="w-full bg-white/80 border border-slate-200 rounded-lg p-3 text-xs outline-none focus:ring-2 focus:ring-indigo-500 min-h-[60px] resize-none"
                         />
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="flex gap-2">
                           <input
                             type="text"
                             value={item.images}
                             onChange={(e) => updateTaskField(category.id, item.id, 'images', e.target.value)}
-                            placeholder="Imagens (Ex: Antes/Depois)"
-                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="Mídia..."
+                            className="flex-grow bg-white/80 border border-slate-200 rounded-lg px-3 py-2 text-[11px] outline-none"
                           />
                           <input
                             type="text"
                             value={item.tags}
                             onChange={(e) => updateTaskField(category.id, item.id, 'tags', e.target.value)}
-                            placeholder="Tags (Ex: #limpeza #sp)"
-                            className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                            placeholder="Tags..."
+                            className="w-24 bg-white/80 border border-slate-200 rounded-lg px-3 py-2 text-[11px] outline-none"
                           />
                         </div>
                       </div>
@@ -353,9 +336,8 @@ const App: React.FC = () => {
         )}
       </main>
 
-      <footer className="p-10 text-center border-t border-slate-200 bg-white">
-        <p className="text-xs font-black text-slate-500 uppercase tracking-[0.2em]">Painel Manual de Divulgação Local</p>
-        <p className="text-[10px] text-slate-400 mt-2 font-bold uppercase tracking-widest">Sem automação • Sem riscos • Sincronização em Nuvem</p>
+      <footer className="p-8 text-center border-t border-slate-100 bg-white">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Controle Manual • Sem Risco de Bloqueio • Cloud Ativo</p>
       </footer>
     </div>
   );
